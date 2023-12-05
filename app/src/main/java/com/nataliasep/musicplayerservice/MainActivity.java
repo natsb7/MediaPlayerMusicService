@@ -31,12 +31,11 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
     private CancionAdapter cancionAdapter;
     private ImageView ivFoto;
     private ImageButton bPlayPause, bAnterior, bSiguiente, bBucle, bVelocidad;
-    private TextView tvTitulo, tvInicio, tvFinal;
+    private TextView tvTitulo, tvInicio, tvFinal, tvSpeed, tvLoop;
     private SeekBar seekBar;
     private Intent intent;
     boolean isPlaying = false;
     private ArrayList<Cancion> canciones;
-    private int cancionSeleccionada;
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -46,39 +45,24 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
             Log.d(MainActivity.class.getSimpleName(), "Conectado al servicio");
             myService.setListener(MainActivity.this);
         }
-
         @Override
         public void onServiceDisconnected(ComponentName name) {
             myService = null;
         }
     };
 
-
-
-    /*private void updateUI() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                cancionAdapter.setCanciones(canciones);
-
-
-            }
-        });
-    }*/
-
     public void play() {
-        intent = new Intent(MainActivity.this, MyService.class);
-        if(!isPlaying){
+        if(!myService.isPlaying()) {
             isPlaying = true;
             bPlayPause.setImageResource(R.drawable.pausa);
+            myService.play();
         }else{
             isPlaying = false;
             bPlayPause.setImageResource(R.drawable.play);
+            myService.pause();
         }
-        intent.setAction(MyService.ACTION_PLAY_PAUSE);
-        startService(intent);
-        bindService(intent, serviceConnection, BIND_AUTO_CREATE);
         Log.d("Mensaje", "mandamos el intent play");
+
     }
 
     @Override
@@ -90,7 +74,6 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
         bindService(intent, serviceConnection, BIND_AUTO_CREATE);
         Log.d("Mensaje", "mandamos el intent");
 
-
         ivFoto = findViewById(R.id.ivImagen);
         bPlayPause = findViewById(R.id.ibPlayPause);
         bAnterior = findViewById(R.id.ibAnterior);
@@ -101,71 +84,78 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
         tvInicio = findViewById(R.id.tvInicio);
         tvFinal = findViewById(R.id.tvFinal);
         seekBar = findViewById(R.id.seekBar);
+        tvSpeed = findViewById(R.id.tvSpeed);
+        tvLoop = findViewById(R.id.tvLoop);
+
 
         bPlayPause.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 play();
-
             }
         });
         bAnterior.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                intent = new Intent(MainActivity.this, MyService.class);
-                intent.setAction(MyService.ACTION_NEXT);
-                startService(intent);
-                bindService(intent, serviceConnection, BIND_AUTO_CREATE);
                 isPlaying = true;
                 bPlayPause.setImageResource(R.drawable.pausa);
-                Log.d("Mensaje", "mandamos el intent next");
+                myService.previous();
             }
         });
         bSiguiente.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                intent = new Intent(MainActivity.this, MyService.class);
-                intent.setAction(MyService.ACTION_PREVIOUS);
-                startService(intent);
-                bindService(intent, serviceConnection, BIND_AUTO_CREATE);
                 isPlaying = true;
                 bPlayPause.setImageResource(R.drawable.pausa);
-                Log.d("Mensaje", "mandamos el intent prev");
+                myService.next();
             }
         });
 
         bBucle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                intent = new Intent(MainActivity.this, MyService.class);
-                intent.setAction(MyService.ACTION_LOOP);
-                startService(intent);
-                bindService(intent, serviceConnection, BIND_AUTO_CREATE);
-
+                myService.loop();
+                if(!myService.isLooping()) {
+                    tvLoop.setText("on");
+                }else{
+                    tvLoop.setText("off");
+                }
             }
         });
         bVelocidad.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                intent = new Intent(MainActivity.this, MyService.class);
-                intent.setAction(MyService.ACTION_VELOCITY);
-                startService(intent);
-                bindService(intent, serviceConnection, BIND_AUTO_CREATE);
-
+                myService.velocity();
+                String speed = myService.getCurrentSpeed();
+                if(speed.equals("1.0")){
+                    tvSpeed.setText("");
+                }else{
+                    tvSpeed.setText(speed);
+                }
             }
         });
     }
 
-
     @Override
     public void onSongClicked(int position) {
+        // Manda la canción del recyclerList al service, se actualizan los datos del interfaz con la canción correcta
         Log.d("cancion click", position+"");
         myService.setPlayingSong(position);
+        if(!myService.isPlaying()) {
+            isPlaying = true;
+            bPlayPause.setImageResource(R.drawable.pausa);
+            myService.play();
+        }else{
+            isPlaying = false;
+            bPlayPause.setImageResource(R.drawable.play);
+            myService.pause();
+        }
+        play();
     }
-
 
     @Override
     public void onArrayRellena() {
+        // Una vez el service está activo, se rellena la array de canciones y se recibe aquí para poder cargar el recyclerList
         canciones = myService.getListaCaciones();
         Log.d("Mensaje", "array rellena en el MAIN");
         Log.d("Array de canciones", canciones.get(0).getTituloCompleto());
@@ -175,7 +165,6 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
         recyclerView.setAdapter(cancionAdapter);
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
-
     }
 
     @Override
@@ -183,6 +172,7 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                // Actualiza los datos de la interfaz cuando cambie la canción
                 Log.d("posicion de la cancion", position+"");
                 ivFoto.setImageResource(myService.getListaCaciones().get(position).getCaratula());
                 tvTitulo.setText(myService.getListaCaciones().get(position).getTituloCompleto());
@@ -212,12 +202,10 @@ public class MainActivity extends AppCompatActivity implements IActionListener{
             }
         });
     }
-
     private String formatTime(int timeInMillis) {
         int seconds = timeInMillis / 1000;
         int minutes = seconds / 60;
         seconds %= 60;
         return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
     }
-
 }

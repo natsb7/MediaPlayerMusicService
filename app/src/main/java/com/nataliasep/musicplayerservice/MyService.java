@@ -16,17 +16,10 @@ import androidx.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Locale;
 
 public class MyService extends Service {
-
     private ArrayList<Cancion> listaCanciones;
     private MediaMetadataRetriever retriever;
-    public static final String ACTION_PLAY_PAUSE = "PLAY_PAUSE";
-    public static final String ACTION_NEXT = "NEXT";
-    public static final String ACTION_PREVIOUS = "PREVIOUS";
-    public static final String ACTION_LOOP = "LOOP";
-    public static final String ACTION_VELOCITY = "VELOCITY";
     private int playingSong;
     private final MyBinder myBinder = new MyBinder();
     private MediaPlayer mediaPlayer;
@@ -34,6 +27,7 @@ public class MyService extends Service {
     private Handler handler = new Handler();
     private Runnable updateSeekBarRunnable;
     private boolean isLooping = false;
+    private float currentSpeed = 1.0f;
 
 
     public void setListener(IActionListener listener) {
@@ -46,6 +40,8 @@ public class MyService extends Service {
         Log.d("posiciones array", listaCanciones.size()+"");
 
     }
+
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -57,14 +53,13 @@ public class MyService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d("Mensaje", "comienza el servicio");
-        manejarIntent(intent);
         updateSeekBarRunnable = new Runnable() {
             @Override
             public void run() {
                 if (mediaPlayer.isPlaying()) {
-                    int currentPositionSecs = mediaPlayer.getCurrentPosition()/1000;
+                    int currentPositionSecs = mediaPlayer.getCurrentPosition()/1000; //Da en segundos la posición en la canción
                     Log.d("msg position", currentPositionSecs+"");
-                    int duration = mediaPlayer.getDuration();
+                    int duration = mediaPlayer.getDuration(); // Da la duración total de la canción reproducciendose
                     Log.d("msg duration", duration+"");
                     listener.onTimeUpdate(currentPositionSecs, duration);
                 }
@@ -74,59 +69,88 @@ public class MyService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void manejarIntent(Intent intent) {
-        if (intent == null || intent.getAction() == null) return;
-        String action = intent.getAction();
-        switch (action) {
-            case ACTION_PLAY_PAUSE:
-                if (mediaPlayer.isPlaying()) {
-                    mediaPlayer.pause();
-                }else{
-                    playSong(playingSong);
-                }
-                Log.d("Cancion numero", playingSong+ "");
-                break;
-            case ACTION_NEXT:
-                Log.d("Mensaje", "next pressed");
-                Log.d("Cancion numero", playingSong+ "");
-                if(playingSong == listaCanciones.size()-1){
-                    playingSong = 0;
-                }else{
-                    playingSong ++;
-                }
-                Log.d("Cancion numero", playingSong+ "");
-                playSong(playingSong);
-                break;
-            case ACTION_PREVIOUS:
-                Log.d("Mensaje", "prev pressed ");
-                Log.d("Cancion numero", playingSong+ "");
-                if (playingSong == 0) {
-                    playingSong = listaCanciones.size()-1;
-                }else{
-                    playingSong --;
-                }
-                Log.d("Cancion numero", playingSong+ "");
-                playSong(playingSong);
-                break;
-            case ACTION_LOOP:
-                if(!isLooping){
-                    isLooping = true;
-                }else{
-                    isLooping = false;
-                }
-                break;
-            case ACTION_VELOCITY:
-                /*if (mediaPlayer != null) {
-                    PlaybackParams params = mediaPlayer.getPlaybackParams();
-                    params.setSpeed(velocidad);
-                    mediaPlayer.setPlaybackParams(params);
-                }*/
-                break;
+    /**
+     * Comprueba si el mediaplayer tiene alguna canción reproduciendose, si no es así, le indica al método playSong que prepare la canción
+     * que esté seleccionada en la array (si no se ha seleccionado nada, se reproduce la primera de la lista)
+     */
+    public void play() {
+        if (mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+        }else{
+            playSong(playingSong);
         }
     }
 
+    /**
+     * pausa el reproductor cuando se pulsa el botón de pausa
+     */
+    public void pause() {
+        mediaPlayer.pause();
+    }
+
+    /**
+     * Método que se activa cuando el botón de "siguiente ha sido pulsado, hace que se reproduzca la siguiente canción a la que se está
+     * reproduciendo en este momento. Comprueba la canción actual y le suma una posición dentro de la array, si está en la última posición
+     * pasará a la posición 0 de la array. Cuando acaba de hacer estos cambios, se llama al método playSong para que prepare la canción
+     */
+    public void next(){
+        if(playingSong == listaCanciones.size()-1){
+            playingSong = 0;
+        }else{
+            playingSong ++;
+        }
+        playSong(playingSong);
+    }
+
+    /**
+     * Método que se activa cuando el botón de "anterior" ha sido pulsado, hace que se reproduzca la anterior canción a la que se está
+     * reproduciendo en este momento. Comprueba la canción actual y le resta una posición en la array, si está en la primera posición
+     * pasará a la posicion size()-1 de la array. Cuando acaba de hacer estos cambios, se llama al método playSong para que repare la canción a reproducir
+     */
+    public void previous(){
+        if (playingSong == 0) {
+            playingSong = listaCanciones.size()-1;
+        }else{
+            playingSong --;
+        }
+        playSong(playingSong);
+    }
+
+    /**
+     * Este método nos permite elegir que la canción se reproduzca en bucle
+     * Comprueba si el boolean isLooping está en false, si es así y el botón se ha pulsado, se pondrá a true para que se reproduzca en bucle
+     */
+    public void loop(){
+        if(!isLooping){
+            isLooping = true;
+        }else{
+            isLooping = false;
+        }
+    }
+
+    /**
+     * Este método nos ayuda a aumentar la velocidad de reproducción, el usuario puede seleccionarlo desde la interfaz
+     */
+    public void velocity(){
+        currentSpeed += 0.5f; // Incrementa la velocidad en 0.5
+        if (currentSpeed > 2.0f) {
+            currentSpeed = 0.5f; // Si supera 2.0, restablece a 0.5
+        }
+        PlaybackParams params = new PlaybackParams(); //Clase que nos ayuda a aumentar la velocidad de la reproducción de la canción actual
+        params.setSpeed(currentSpeed);
+        mediaPlayer.setPlaybackParams(params);
+    }
+
+    /**
+     * Este método nos prepara la canción que se va a reproducir pasandole la posición de la array de la canción seleccionada
+     * sacamos la uri de la canción seleccionada para poder pasarselo al setDataSource
+     * El setOnPreparedListener nos avisa si la canción ya está preparada, hasta que esto no ocurra, no empezará el reproductor
+     *
+     * @param playingSong
+     */
     public void playSong(int playingSong) {
         Uri uri = listaCanciones.get(playingSong).getUri();
+
         mediaPlayer.reset();
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try {
@@ -139,7 +163,9 @@ public class MyService extends Service {
             public void onPrepared(MediaPlayer mp) {
                 mediaPlayer.start();
                 handler.post(updateSeekBarRunnable); // Inicia la actualización de la SeekBar
-                listener.onSongChanged(playingSong);
+                listener.onSongChanged(playingSong); // Listener que se activa cada vez que cambie la canción
+                // sea por el motivo que sea, para que se cambién los datos referentes a la canción en la interfaz
+
             }
         });
         mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -151,12 +177,18 @@ public class MyService extends Service {
                 }else{
                     playSong(playingSong);
                 }
+                // Nos avisa si la canción se acabado, para saber si el usuario ha pulsado el botón del bucle se comprueba la variable isLooping
             }
         });
-
+        //se prepara el mediaPlayer de manera asíncrona, esperando a que la canción esté preparada
         mediaPlayer.prepareAsync();
     }
 
+    /**
+     * Este método nos ayuda a que la reproducción de las canciones sea continúa dentro de la array
+     * Cuando acaba una canción pasa automáticamente a la siguiente aunque no le demos la orden desde la interfaz
+     * Si la canción está en la última posición (size()-1), vuelve a la inicial, que es 0
+     */
     public void nextSong(){
         if(playingSong == listaCanciones.size()-1){
             playingSong = 0;
@@ -205,8 +237,22 @@ public class MyService extends Service {
         }
         return listaCanciones;
     }
+
+    public boolean isPlaying() {
+        return mediaPlayer.isPlaying();
+    }
+
     public void setPlayingSong(int position){
+        // Método que nos ayuda a reproducir la canción que se ha elegido desde el recyclerView, nos pasa la posición clickada
         this.playingSong = position;
         playSong(playingSong);
+    }
+    public String getCurrentSpeed(){
+        // Nos devuelve la velocidad actual a la que se reproduce la canción, para poder rellenar el textView
+        String speed = String.valueOf(currentSpeed);
+        return speed;
+    }
+    public boolean isLooping(){
+        return mediaPlayer.isLooping();
     }
 }

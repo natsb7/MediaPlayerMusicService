@@ -17,7 +17,7 @@
         android:focusable="true"
         android:focusableInTouchMode="true"
         android:marqueeRepeatLimit="marquee_forever"
-        android:text=". "
+        android:text="."
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ivImagen" />
 
@@ -131,5 +131,27 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/seekBar"
         app:srcCompat="@drawable/play" />
+
+    <TextView
+        android:id="@+id/tvSpeed"
+        android:layout_width="30dp"
+        android:layout_height="14dp"
+        android:layout_marginStart="44dp"
+        android:text=""
+        android:textColor="#4CAF50"
+        android:textSize="10sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/ibVelocidad" />
+
+    <TextView
+        android:id="@+id/tvLoop"
+        android:layout_width="26dp"
+        android:layout_height="12dp"
+        android:layout_marginStart="84dp"
+        android:text=""
+        android:textColor="#4CAF50"
+        android:textSize="10sp"
+        app:layout_constraintStart_toEndOf="@+id/ibPlayPause"
+        app:layout_constraintTop_toBottomOf="@+id/ibLoop" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
